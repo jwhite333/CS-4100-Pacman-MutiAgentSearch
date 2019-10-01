@@ -18,6 +18,95 @@ import random, util
 
 from game import Agent
 
+def GetGhostAversion(position, ghostStates):
+    ghostAversion = 0
+    for ghost in ghostStates:
+        if ghost.scaredTimer == 0:
+            ghostPosition = ghost.getPosition()
+            distance = manhattanDistance(position, ghostPosition)
+            if distance <= 1:
+                ghostAversion = min(ghostAversion, -500 + 250 * distance)
+    return ghostAversion
+
+def GetAStarDist(position, ghostStates, destination, wallGrid):
+    wallGridTemp = wallGrid.copy()
+    # for ghost in ghostStates:
+    #     if ghost.scaredTimer == 0:
+    #         ghostX,ghostY = ghost.getPosition()
+    #         wallGridTemp[int(ghostX)][int(ghostY)] = True     
+
+    possibleMoves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    fringe = util.PriorityQueue()
+    exploredNodes = [position]
+    x,y = position
+
+    if position == destination:
+        return 0
+
+    for dx,dy in possibleMoves:
+        if not wallGridTemp[x + dx][y + dy]:
+            newPosition = (x + dx, y + dy)
+            if newPosition != destination:
+                fringe.push([position, newPosition], 1 + manhattanDistance(newPosition, destination))
+            else:
+                return 1
+
+    while not fringe.isEmpty():
+        path = fringe.pop()
+        node = path[-1]
+
+        if node == destination:
+            return len(path) - 1
+        
+        if node not in exploredNodes:
+            exploredNodes.append(node)
+            nodeX,nodeY = node
+            for dx,dy in possibleMoves:
+                if not wallGridTemp[nodeX + dx][nodeY + dy] and (nodeX + dx, nodeY + dy) not in exploredNodes:
+                    newPath = path.copy()
+                    newPath.append((nodeX + dx, nodeY + dy))
+                    fringe.push(newPath, len(path) -1 + manhattanDistance((nodeX + dx, nodeY + dy), destination))
+
+    return 99999999
+
+
+def WavefrontHeuristic(position, ghostStates, foodGrid, wallGrid):
+    wallGridTemp = wallGrid.copy()
+    if foodGrid.count() == 0:
+        return 0
+    else:
+        # totalFood = foodGrid.count()
+        totalSquares =  (wallGridTemp.height * wallGridTemp.width) - wallGridTemp.count()
+        accessibleFood = 0
+        possibleMoves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        # Get ghost positions
+        ghostPositions = []
+        for ghost in ghostStates:
+            if ghost.scaredTimer == 0:
+                ghostPositions.append(ghost.getPosition())
+        
+        # Set ghost positions to be equivalent to a wall
+        for x,y in ghostPositions:
+            wallGridTemp[int(x)][int(y)] = True
+        
+        # Run wavefront on a copy of the walls grid to find food
+        visitedNodes = [position]
+        queue = [position]
+        while len(queue):
+            x,y = queue.pop()
+            for dx,dy in possibleMoves:
+                newPosition = (x + dx, y + dy)
+                isWall = wallGridTemp[x + dx][y + dy]
+                if not isWall and newPosition not in visitedNodes:
+                    queue.append(newPosition)
+                    visitedNodes.append(newPosition)
+                    wallGridTemp[x + dx][y + dy] = False
+                    if foodGrid[x + dx][y + dy]:
+                        accessibleFood = accessibleFood + 1
+        # return totalFood - accessibleFood
+        return totalSquares - len(visitedNodes) - len(ghostPositions)
+
 class ReflexAgent(Agent):
     """
     A reflex agent chooses an action at each choice point by examining
@@ -42,6 +131,7 @@ class ReflexAgent(Agent):
         legalMoves = gameState.getLegalActions()
 
         # Choose one of the best actions
+        # print("Evaluating action")
         scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
         bestScore = max(scores)
         bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
@@ -67,14 +157,58 @@ class ReflexAgent(Agent):
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
+        # print(action)
         successorGameState = currentGameState.generatePacmanSuccessor(action)
-        newPos = successorGameState.getPacmanPosition()
+        pacX,pacY = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
+        inaccessableSquares = WavefrontHeuristic((pacX, pacY), newGhostStates, newFood, successorGameState.getWalls())
+        # minGhostDistance = 9999999999
+        # for ghost in newGhostStates:
+        #     x,y = ghost.getPosition()
+        #     distance = manhattanDistance((pacX, pacY), (x, y))
+        #     if distance < minGhostDistance:
+        #         minGhostDistance = distance
+
+        # maxFoodDistance = 0
+        # for (foodX, foodY) in newFood.asList():
+        #     distance = manhattanDistance((pacX, pacY), (foodX, foodY))
+        #     if distance > maxFoodDistance:
+        #         maxFoodDistance = distance
+
+        # minFoodDistance = 9999999999
+        # for (foodX, foodY) in newFood.asList():
+        #     distance = manhattanDistance((pacX, pacY), (foodX, foodY))
+        #     if distance < minFoodDistance:
+        #         minFoodDistance = distance
+
+        # distance = GetAStarDist((pacX, pacY), newGhostStates, (1,1), successorGameState.getWalls())
+
+        minFoodDistance = 999999
+        # maxFoodDistance = 0
+        for (foodX, foodY) in newFood.asList():
+            distance = GetAStarDist((pacX, pacY), newGhostStates, (foodX,foodY), successorGameState.getWalls())
+            minFoodDistance = min(minFoodDistance, distance)
+                
+        ghostAversion = GetGhostAversion((pacX, pacY), newGhostStates)
+        foodScore = 100 * (currentGameState.getFood().count() - successorGameState.getFood().count())
+        gameWinBonus = 1000 if newFood.count() == 0 else 500 if newFood.count() == 1 else 0
+        if newFood.count() == 0:
+            minFoodDistance = 0
+
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        # print("Utilites - Score: {0}, InaccessableSquares: {1}, FoodScore: {2}, GhostAversion: {3}, MinFoodDistance: {4}, WinBonus: {5}".format(
+        #     successorGameState.getScore(), inaccessableSquares, foodScore, ghostAversion, maxFoodDistance, gameWinBonus))
+
+        # successorGameState.getScore() - 
+        utility = 5 * inaccessableSquares + foodScore + ghostAversion - minFoodDistance + gameWinBonus
+        # print("TotalUtility: {0}".format(utility))
+        
+        return utility
+        # return -inaccessableSquares - newFood.count() + minGhostDistance - maxFoodDistance
+        # return foodScore + ghostAversion - maxFoodDistance + gameWinBonus
 
 def scoreEvaluationFunction(currentGameState):
     """
