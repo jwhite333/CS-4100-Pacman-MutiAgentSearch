@@ -15,6 +15,8 @@
 from util import manhattanDistance
 from game import Directions
 import random, util
+from math import inf
+from copy import copy
 
 from game import Agent
 
@@ -131,7 +133,7 @@ class ReflexAgent(Agent):
         legalMoves = gameState.getLegalActions()
 
         # Choose one of the best actions
-        # print("Evaluating action")
+        # # print("Evaluating action")
         scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
         bestScore = max(scores)
         bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
@@ -153,18 +155,17 @@ class ReflexAgent(Agent):
         newScaredTimes holds the number of moves that each ghost will remain
         scared because of Pacman having eaten a power pellet.
 
-        Print out these variables to see what you're getting, then combine them
+        # print out these variables to see what you're getting, then combine them
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
-        # print(action)
+        # # print(action)
         successorGameState = currentGameState.generatePacmanSuccessor(action)
         pacX,pacY = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
-        inaccessableSquares = WavefrontHeuristic((pacX, pacY), newGhostStates, newFood, successorGameState.getWalls())
         # minGhostDistance = 9999999999
         # for ghost in newGhostStates:
         #     x,y = ghost.getPosition()
@@ -186,6 +187,8 @@ class ReflexAgent(Agent):
 
         # distance = GetAStarDist((pacX, pacY), newGhostStates, (1,1), successorGameState.getWalls())
 
+
+        inaccessableSquares = WavefrontHeuristic((pacX, pacY), newGhostStates, newFood, successorGameState.getWalls())
         minFoodDistance = 999999
         # maxFoodDistance = 0
         for (foodX, foodY) in newFood.asList():
@@ -199,12 +202,12 @@ class ReflexAgent(Agent):
             minFoodDistance = 0
 
         "*** YOUR CODE HERE ***"
-        # print("Utilites - Score: {0}, InaccessableSquares: {1}, FoodScore: {2}, GhostAversion: {3}, MinFoodDistance: {4}, WinBonus: {5}".format(
+        # # print("Utilites - Score: {0}, InaccessableSquares: {1}, FoodScore: {2}, GhostAversion: {3}, MinFoodDistance: {4}, WinBonus: {5}".format(
         #     successorGameState.getScore(), inaccessableSquares, foodScore, ghostAversion, maxFoodDistance, gameWinBonus))
 
         # successorGameState.getScore() - 
         utility = 5 * inaccessableSquares + foodScore + ghostAversion - minFoodDistance + gameWinBonus
-        # print("TotalUtility: {0}".format(utility))
+        # # print("TotalUtility: {0}".format(utility))
         
         return utility
         # return -inaccessableSquares - newFood.count() + minGhostDistance - maxFoodDistance
@@ -240,6 +243,108 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
+# class DecisionTreeResult:
+#     def __init__(self, action, cost):
+#         self.actions = [action]
+#         self.cost = cost
+
+#     def GetCost(self):
+#         return self.cost
+
+#     def AppendAction(self, action):
+#         # self.actions = self.actions[:] + [action]
+#         self.actions.extend([action])
+
+#     def GetActions(self):
+#         return self.actions
+
+def ActionPreference(actionOne, actionTwo):
+    if actionOne == "South" and actionTwo == "Stop":
+        return actionTwo
+    else:
+        return actionTwo
+
+def MaxValue(gameState, action, depth, depthLimit, recursionLevel, doLogging, evalFunction):
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Max(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, "pacman", action, depth, depthLimit))
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit:
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        # return scoreEvaluationFunction(gameState)
+        return evalFunction(gameState)
+    else:
+        maxValue = -inf
+        nextAgent = 1
+        for nextAction in gameState.getLegalActions(nextAgent):
+            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+            result = MinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
+            if result > maxValue:
+                maxValue = result
+            # elif result == maxValue:
+            #     print("potential conflict in max with {0}".format(nextAction))
+        if doLogging:
+            print("{0}Max returning cost={1} for action={2})".format(indent, maxValue, action))
+        return maxValue
+
+def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction):
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Min(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, agentIndex, action, depth, depthLimit))
+    
+    nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+    
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit: # or (nextAgent == 0 and depth + 1 == depthLimit):
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        # return scoreEvaluationFunction(gameState)
+        return evalFunction(gameState)
+    else:
+        minValue = inf
+        # numAgents = 1
+        # try:
+        #     numAgents = gameState.problem.numAgents
+        # except:
+        #     numAgents = len(gameState.data.agentStates)
+
+        # nextAgent = (agentIndex + 1) % numAgents
+        # nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+
+        for nextAction in gameState.getLegalActions(nextAgent):
+            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+            if nextAgent == 0:
+                result = MaxValue(nextState, nextAction, depth + 1, depthLimit, recursionLevel + 1, doLogging, evalFunction)
+            else:
+                result = MinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
+            if result < minValue:
+                minValue = result
+            # elif result == minValue:
+            #     print("potential conflict in min with {0}".format(nextAction))
+        if doLogging:
+            print("{0}Min returning cost={1} for action={2})".format(indent, minValue, action))
+        return minValue
+
+def Minimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
+    legalMoves = gameState.getLegalActions(agentIndex)
+    maxValue = -inf
+    bestAction = None
+    for action in legalMoves:
+        nextState = gameState.generateSuccessor(agentIndex, action)
+        result = MinValue(nextState, action, depth, depthLimit, 1, 0, doLogging, evalFunction)
+        if result > maxValue:
+            maxValue = result
+            bestAction = copy(action)
+        # elif result == maxValue:
+        #     print("potential conflict in minimax with {0}".format(action))
+            # bestAction = ActionPreference(copy(action), bestAction)
+    # print("{0} chosen with score: {1}".format(bestAction, maxValue))
+    print(bestAction)
+    return bestAction
+
 class MinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent (question 2)
@@ -269,10 +374,11 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return Minimax(gameState, 0, 0, self.depth, False, self.evaluationFunction)
+        # util.raiseNotDefined()
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
-    """
+    """result
     Your minimax agent with alpha-beta pruning (question 3)
     """
 
