@@ -265,16 +265,21 @@ def ActionPreference(actionOne, actionTwo):
         return actionTwo
 
 def MaxValue(gameState, action, depth, depthLimit, recursionLevel, doLogging, evalFunction):
+
+    # Log starting info
     indent = ""
     for _ in range(0, recursionLevel):
         indent = indent + "  "
     if doLogging:
         print("{0}Max(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, "pacman", action, depth, depthLimit))
+
+    # Check for terminal state
     if gameState.isWin() or gameState.isLose() or depth == depthLimit:
         if doLogging:
             print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
-        # return scoreEvaluationFunction(gameState)
         return evalFunction(gameState)
+
+    # Calculate max action recursively
     else:
         maxValue = -inf
         nextAgent = 1
@@ -283,37 +288,33 @@ def MaxValue(gameState, action, depth, depthLimit, recursionLevel, doLogging, ev
             result = MinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
             if result > maxValue:
                 maxValue = result
-            # elif result == maxValue:
-            #     print("potential conflict in max with {0}".format(nextAction))
+
+        # Log ending info
         if doLogging:
             print("{0}Max returning cost={1} for action={2})".format(indent, maxValue, action))
         return maxValue
 
 def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction):
+
+    # Log starting info
     indent = ""
     for _ in range(0, recursionLevel):
         indent = indent + "  "
     if doLogging:
         print("{0}Min(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, agentIndex, action, depth, depthLimit))
     
+    # Get next agent
     nextAgent = (agentIndex + 1) % gameState.getNumAgents()
     
+    # Check for terminal state
     if gameState.isWin() or gameState.isLose() or depth == depthLimit: # or (nextAgent == 0 and depth + 1 == depthLimit):
         if doLogging:
             print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
-        # return scoreEvaluationFunction(gameState)
         return evalFunction(gameState)
+
+    # Calculate min action recursively
     else:
         minValue = inf
-        # numAgents = 1
-        # try:
-        #     numAgents = gameState.problem.numAgents
-        # except:
-        #     numAgents = len(gameState.data.agentStates)
-
-        # nextAgent = (agentIndex + 1) % numAgents
-        # nextAgent = (agentIndex + 1) % gameState.getNumAgents()
-
         for nextAction in gameState.getLegalActions(nextAgent):
             nextState = gameState.generateSuccessor(nextAgent, nextAction)
             if nextAgent == 0:
@@ -322,26 +323,21 @@ def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, d
                 result = MinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
             if result < minValue:
                 minValue = result
-            # elif result == minValue:
-            #     print("potential conflict in min with {0}".format(nextAction))
+
+        # Log ending info
         if doLogging:
             print("{0}Min returning cost={1} for action={2})".format(indent, minValue, action))
         return minValue
 
 def Minimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
-    legalMoves = gameState.getLegalActions(agentIndex)
     maxValue = -inf
     bestAction = None
-    for action in legalMoves:
+    for action in gameState.getLegalActions(agentIndex):
         nextState = gameState.generateSuccessor(agentIndex, action)
         result = MinValue(nextState, action, depth, depthLimit, 1, 0, doLogging, evalFunction)
         if result > maxValue:
             maxValue = result
             bestAction = copy(action)
-        # elif result == maxValue:
-        #     print("potential conflict in minimax with {0}".format(action))
-            # bestAction = ActionPreference(copy(action), bestAction)
-    # print("{0} chosen with score: {1}".format(bestAction, maxValue))
     print(bestAction)
     return bestAction
 
@@ -389,6 +385,83 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
 
+def ExpectedMax(gameState, action, depth, depthLimit, recursionLevel, doLogging, evalFunction):
+
+    # Log starting info
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Max(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, "pacman", action, depth, depthLimit))
+
+    # Check for terminal state
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit:
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        return evalFunction(gameState)
+
+    # Calculate max action recursively
+    else:
+        maxValue = -inf
+        nextAgent = 1
+        for nextAction in gameState.getLegalActions(nextAgent):
+            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+            result = ExpectedMin(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
+            if result > maxValue:
+                maxValue = result
+
+        # Log ending info
+        if doLogging:
+            print("{0}Max returning cost={1} for action={2})".format(indent, maxValue, action))
+        return maxValue
+
+def ExpectedMin(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction):
+
+    # Log starting info
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Min(agent={1}, action={2}, depth={3}, depthLimit={4})".format(indent, agentIndex, action, depth, depthLimit))
+
+    # Get next agent
+    nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+
+    # Check for terminal state
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit:
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        return evalFunction(gameState)
+
+    # Calculate min action recursively
+    else:
+        totalScore = 0
+        legalActions = gameState.getLegalActions(nextAgent)
+        for nextAction in legalActions:
+            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+            if nextAgent == 0:
+                totalScore = totalScore + ExpectedMax(nextState, nextAction, depth + 1, depthLimit, recursionLevel + 1, doLogging, evalFunction)
+            else:
+                totalScore = totalScore + ExpectedMin(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
+        score = totalScore / len(legalActions)
+
+        # Log ending info
+        if doLogging:
+            print("{0}Min returning cost={1})".format(indent, score))
+        return score
+
+def Expectimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
+    maxValue = -inf
+    bestAction = None
+    for action in gameState.getLegalActions(agentIndex):
+        nextState = gameState.generateSuccessor(agentIndex, action)
+        result = ExpectedMin(nextState, action, depth, depthLimit, 1, 0, doLogging, evalFunction)
+        if result > maxValue:
+            maxValue = result
+            bestAction = copy(action)
+    print(bestAction)
+    return bestAction
+
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
       Your expectimax agent (question 4)
@@ -402,7 +475,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return Expectimax(gameState, 0, 0, self.depth, True, self.evaluationFunction)
 
 def betterEvaluationFunction(currentGameState):
     """
