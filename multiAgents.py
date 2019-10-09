@@ -31,11 +31,7 @@ def GetGhostAversion(position, ghostStates):
     return ghostAversion
 
 def GetAStarDist(position, ghostStates, destination, wallGrid):
-    wallGridTemp = wallGrid.copy()
-    # for ghost in ghostStates:
-    #     if ghost.scaredTimer == 0:
-    #         ghostX,ghostY = ghost.getPosition()
-    #         wallGridTemp[int(ghostX)][int(ghostY)] = True     
+    wallGridTemp = wallGrid.copy()  
 
     possibleMoves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     fringe = util.PriorityQueue()
@@ -159,38 +155,14 @@ class ReflexAgent(Agent):
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
-        # # print(action)
         successorGameState = currentGameState.generatePacmanSuccessor(action)
         pacX,pacY = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
-        # minGhostDistance = 9999999999
-        # for ghost in newGhostStates:
-        #     x,y = ghost.getPosition()
-        #     distance = manhattanDistance((pacX, pacY), (x, y))
-        #     if distance < minGhostDistance:
-        #         minGhostDistance = distance
-
-        # maxFoodDistance = 0
-        # for (foodX, foodY) in newFood.asList():
-        #     distance = manhattanDistance((pacX, pacY), (foodX, foodY))
-        #     if distance > maxFoodDistance:
-        #         maxFoodDistance = distance
-
-        # minFoodDistance = 9999999999
-        # for (foodX, foodY) in newFood.asList():
-        #     distance = manhattanDistance((pacX, pacY), (foodX, foodY))
-        #     if distance < minFoodDistance:
-        #         minFoodDistance = distance
-
-        # distance = GetAStarDist((pacX, pacY), newGhostStates, (1,1), successorGameState.getWalls())
-
-
         inaccessableSquares = WavefrontHeuristic((pacX, pacY), newGhostStates, newFood, successorGameState.getWalls())
         minFoodDistance = 999999
-        # maxFoodDistance = 0
         for (foodX, foodY) in newFood.asList():
             distance = GetAStarDist((pacX, pacY), newGhostStates, (foodX,foodY), successorGameState.getWalls())
             minFoodDistance = min(minFoodDistance, distance)
@@ -202,17 +174,9 @@ class ReflexAgent(Agent):
             minFoodDistance = 0
 
         "*** YOUR CODE HERE ***"
-        # # print("Utilites - Score: {0}, InaccessableSquares: {1}, FoodScore: {2}, GhostAversion: {3}, MinFoodDistance: {4}, WinBonus: {5}".format(
-        #     successorGameState.getScore(), inaccessableSquares, foodScore, ghostAversion, maxFoodDistance, gameWinBonus))
-
-        # successorGameState.getScore() - 
         utility = 5 * inaccessableSquares + foodScore + ghostAversion - minFoodDistance + gameWinBonus
-        # # print("TotalUtility: {0}".format(utility))
         
         return utility
-        # return -inaccessableSquares - newFood.count() + minGhostDistance - maxFoodDistance
-        # return foodScore + ghostAversion - maxFoodDistance + gameWinBonus
-
 def scoreEvaluationFunction(currentGameState):
     """
     This default evaluation function just returns the score of the state.
@@ -243,21 +207,6 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
-# class DecisionTreeResult:
-#     def __init__(self, action, cost):
-#         self.actions = [action]
-#         self.cost = cost
-
-#     def GetCost(self):
-#         return self.cost
-
-#     def AppendAction(self, action):
-#         # self.actions = self.actions[:] + [action]
-#         self.actions.extend([action])
-
-#     def GetActions(self):
-#         return self.actions
-
 def ActionPreference(actionOne, actionTwo):
     if actionOne == "South" and actionTwo == "Stop":
         return actionTwo
@@ -283,15 +232,15 @@ def MaxValue(gameState, action, depth, depthLimit, recursionLevel, doLogging, ev
     else:
         maxValue = -inf
         nextAgent = 1
-        for nextAction in gameState.getLegalActions(nextAgent):
-            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+        for nextAction in gameState.getLegalActions(0):
+            nextState = gameState.generateSuccessor(0, nextAction)
             result = MinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
             if result > maxValue:
                 maxValue = result
 
         # Log ending info
         if doLogging:
-            print("{0}Max returning cost={1} for action={2})".format(indent, maxValue, action))
+            print("{0}Max returning cost={1} for action={2}".format(indent, maxValue, action))
         return maxValue
 
 def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction):
@@ -315,8 +264,8 @@ def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, d
     # Calculate min action recursively
     else:
         minValue = inf
-        for nextAction in gameState.getLegalActions(nextAgent):
-            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+        for nextAction in gameState.getLegalActions(agentIndex):
+            nextState = gameState.generateSuccessor(agentIndex, nextAction)
             if nextAgent == 0:
                 result = MaxValue(nextState, nextAction, depth + 1, depthLimit, recursionLevel + 1, doLogging, evalFunction)
             else:
@@ -326,7 +275,7 @@ def MinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, d
 
         # Log ending info
         if doLogging:
-            print("{0}Min returning cost={1} for action={2})".format(indent, minValue, action))
+            print("{0}Min returning cost={1} for action={2}".format(indent, minValue, action))
         return minValue
 
 def Minimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
@@ -338,7 +287,8 @@ def Minimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
         if result > maxValue:
             maxValue = result
             bestAction = copy(action)
-    print(bestAction)
+    if doLogging:
+        print(bestAction)
     return bestAction
 
 class MinimaxAgent(MultiAgentSearchAgent):
@@ -373,6 +323,95 @@ class MinimaxAgent(MultiAgentSearchAgent):
         return Minimax(gameState, 0, 0, self.depth, False, self.evaluationFunction)
         # util.raiseNotDefined()
 
+def ABMaxValue(gameState, action, depth, depthLimit, recursionLevel, doLogging, evalFunction, alpha, beta):
+
+    # Log starting info
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Max(agent={1}, action={2}, depth={3}, depthLimit={4}, alpha={5}, beta={6})".format(indent, "pacman", action, depth, depthLimit, alpha, beta))
+
+    # Check for terminal state
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit:
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        return evalFunction(gameState)
+
+    # Calculate max action recursively
+    else:
+        maxValue = -inf
+        nextAgent = 1
+        for nextAction in gameState.getLegalActions(0):
+            nextState = gameState.generateSuccessor(0, nextAction)
+            maxValue = max(maxValue, ABMinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction, alpha, beta))
+            
+            alpha = max(alpha, maxValue)
+            if alpha > beta:
+                if doLogging:
+                    print("{0}Max skipping, alpha={1}, beta={2}".format(indent, alpha, beta))
+                break
+
+        # Log ending info
+        if doLogging:
+            print("{0}Max returning cost={1} for action={2}".format(indent, maxValue, action))
+        return maxValue
+
+def ABMinValue(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction, alpha, beta):
+
+    # Log starting info
+    indent = ""
+    for _ in range(0, recursionLevel):
+        indent = indent + "  "
+    if doLogging:
+        print("{0}Min(agent={1}, action={2}, depth={3}, depthLimit={4}, alpha={5}, beta={6})".format(indent, agentIndex, action, depth, depthLimit, alpha, beta))
+    
+    # Get next agent
+    nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+    
+    # Check for terminal state
+    if gameState.isWin() or gameState.isLose() or depth == depthLimit: # or (nextAgent == 0 and depth + 1 == depthLimit):
+        if doLogging:
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+        return evalFunction(gameState)
+
+    # Calculate min action recursively
+    else:
+        minValue = inf
+        for nextAction in gameState.getLegalActions(agentIndex):
+            nextState = gameState.generateSuccessor(agentIndex, nextAction)
+            if nextAgent == 0:
+                minValue = min(minValue, ABMaxValue(nextState, nextAction, depth + 1, depthLimit, recursionLevel + 1, doLogging, evalFunction, alpha, beta))
+            else:
+                minValue = min(minValue, ABMinValue(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction, alpha, beta))
+            
+            beta = min(beta, minValue)
+            if alpha > beta:
+                if doLogging:
+                    print("{0}Min skipping, alpha={1}, beta={2}".format(indent, alpha, beta))
+                break
+
+        # Log ending info
+        if doLogging:
+            print("{0}Min returning cost={1} for action={2}".format(indent, minValue, action))
+        return minValue
+
+def ABMinimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction):
+    alpha = -inf
+    beta = inf
+    bestAction = None
+    for action in gameState.getLegalActions(agentIndex):
+        nextState = gameState.generateSuccessor(agentIndex, action)
+        result = ABMinValue(nextState, action, depth, depthLimit, 1, 0, doLogging, evalFunction, alpha, beta)
+        if result > alpha:
+            alpha = result
+            bestAction = copy(action)
+
+        # beta = min(beta, result)
+    if doLogging:
+        print(bestAction)
+    return bestAction
+
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """result
     Your minimax agent with alpha-beta pruning (question 3)
@@ -383,7 +422,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return ABMinimax(gameState, 0, 0, self.depth, False, self.evaluationFunction)
 
 def ExpectedMax(gameState, action, depth, depthLimit, recursionLevel, doLogging, evalFunction):
 
@@ -397,22 +436,22 @@ def ExpectedMax(gameState, action, depth, depthLimit, recursionLevel, doLogging,
     # Check for terminal state
     if gameState.isWin() or gameState.isLose() or depth == depthLimit:
         if doLogging:
-            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, evalFunction(gameState)))
         return evalFunction(gameState)
 
     # Calculate max action recursively
     else:
         maxValue = -inf
         nextAgent = 1
-        for nextAction in gameState.getLegalActions(nextAgent):
-            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+        for nextAction in gameState.getLegalActions(0):
+            nextState = gameState.generateSuccessor(0, nextAction)
             result = ExpectedMin(nextState, nextAction, depth, depthLimit, nextAgent, recursionLevel + 1, doLogging, evalFunction)
             if result > maxValue:
                 maxValue = result
 
         # Log ending info
         if doLogging:
-            print("{0}Max returning cost={1} for action={2})".format(indent, maxValue, action))
+            print("{0}Max returning cost={1} for action={2}".format(indent, maxValue, action))
         return maxValue
 
 def ExpectedMin(gameState, action, depth, depthLimit, agentIndex, recursionLevel, doLogging, evalFunction):
@@ -430,15 +469,15 @@ def ExpectedMin(gameState, action, depth, depthLimit, agentIndex, recursionLevel
     # Check for terminal state
     if gameState.isWin() or gameState.isLose() or depth == depthLimit:
         if doLogging:
-            print("{0}Terminal State, returning (action={1}, score={2})".format(indent + "  ", action, scoreEvaluationFunction(gameState)))
+            print("{0}Terminal State, returning (action={1}, score={2}".format(indent + "  ", action, evalFunction(gameState)))
         return evalFunction(gameState)
 
     # Calculate min action recursively
     else:
         totalScore = 0
-        legalActions = gameState.getLegalActions(nextAgent)
+        legalActions = gameState.getLegalActions(agentIndex)
         for nextAction in legalActions:
-            nextState = gameState.generateSuccessor(nextAgent, nextAction)
+            nextState = gameState.generateSuccessor(agentIndex, nextAction)
             if nextAgent == 0:
                 totalScore = totalScore + ExpectedMax(nextState, nextAction, depth + 1, depthLimit, recursionLevel + 1, doLogging, evalFunction)
             else:
@@ -459,7 +498,8 @@ def Expectimax(gameState, agentIndex, depth, depthLimit, doLogging, evalFunction
         if result > maxValue:
             maxValue = result
             bestAction = copy(action)
-    print(bestAction)
+    if doLogging:
+        print(bestAction)
     return bestAction
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
@@ -475,7 +515,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        return Expectimax(gameState, 0, 0, self.depth, True, self.evaluationFunction)
+        return Expectimax(gameState, 0, 0, self.depth, False, self.evaluationFunction)
 
 def betterEvaluationFunction(currentGameState):
     """
@@ -485,7 +525,33 @@ def betterEvaluationFunction(currentGameState):
     DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    pacX,pacY = currentGameState.getPacmanPosition()
+    food = currentGameState.getFood()
+    ghostStates = currentGameState.getGhostStates()
+
+    minFoodDistance = 999999
+    for (foodX, foodY) in food.asList():
+        distance = GetAStarDist((pacX, pacY), ghostStates, (foodX,foodY), currentGameState.getWalls())
+        minFoodDistance = min(minFoodDistance, distance)
+            
+    ghostAversion = GetGhostAversion((pacX, pacY), ghostStates)
+    totalFood = food.height * food.width
+    foodScore = 100 * (totalFood - food.count())
+    gameWinBonus = 1000 if food.count() == 0 else 500 if food.count() == 1 else 0
+    if food.count() == 0:
+        minFoodDistance = 0
+
+    # Hunt down the ghosts
+    hunterScore = 0
+    for ghost in ghostStates:
+        if ghost.scaredTimer != 0:
+            hunterScore = 1000000 - 2000 * util.manhattanDistance((pacX, pacY), ghost.getPosition())
+        else:
+            hunterScore = 0
+
+    "*** YOUR CODE HERE ***"
+    utility = foodScore + ghostAversion - minFoodDistance + gameWinBonus + currentGameState.getScore() + hunterScore
+    return utility
 
 # Abbreviation
 better = betterEvaluationFunction
